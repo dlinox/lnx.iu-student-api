@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Modules\{{moduleName}}\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Modules\{{moduleName}}\Http\Resources\{{moduleName}}DataTableItemResource;
+use App\Modules\{{moduleName}}\Models\{{moduleName}};
+use App\Http\Responses\ApiResponse;
+use App\Modules\{{moduleName}}\Http\Requests\{{moduleName}}SaveRequest;
+use App\Modules\{{moduleName}}\Http\Resources\{{moduleName}}FormItemResource;
+
+class {{moduleName}}Controller extends Controller
+{
+    public function loadDataTable(Request $request)
+    {
+        try {
+            $items = {{moduleName}}::dataTable($request);
+            {{moduleName}}DataTableItemResource::collection($items);
+            return ApiResponse::success($items);
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 'Error al cargar los registros');
+        }
+    }
+
+    public function getFormItem(Request $request)
+    {
+        try {
+            $item = {{moduleName}}::find($request->id);
+            return ApiResponse::success({{moduleName}}FormItemResource::make($item));
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 'Error al cargar el registro');
+        }
+    }
+
+    public function saveItem({{moduleName}}SaveRequest $request)
+    {
+        try {
+            $data = $request->validated();
+            {{moduleName}}::updateOrCreate(['id' => $request->id], $data);
+            return ApiResponse::success(null, 'Registro guardado correctamente');
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 'Error al guardar el registro');
+        }
+    }
+
+    public function deleteItem(Request $request)
+    {
+        try {
+            {{moduleName}}::destroy($request->id);
+            return ApiResponse::success(null, 'Registro eliminado correctamente');
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 'Error al eliminar el registro');
+        }
+    }
+}

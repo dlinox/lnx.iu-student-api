@@ -1,0 +1,12 @@
+<?php
+
+namespace App\Modules\{{moduleName}}\Database\Seeder;
+
+use Illuminate\Database\Seeder;
+
+class {{moduleName}}Seeder extends Seeder
+{
+    public function run(): void
+    {
+    }
+}

@@ -1,0 +1,11 @@
+<?php
+
+use App\Modules\{{moduleName}}\Http\Controllers\{{moduleName}}Controller;
+use Illuminate\Support\Facades\Route;
+
+Route::prefix('api/{{moduleTable}}')->group(function () {
+    Route::post('load-datatable', [{{moduleName}}Controller::class, 'loadDataTable']);
+    Route::get('get-form-item/{id}', [{{moduleName}}Controller::class, 'getFormItem']);
+    Route::post('save-item', [{{moduleName}}Controller::class, 'saveItem']);
+    Route::delete('delete-item/{id}', [{{moduleName}}Controller::class, 'deleteItem']);
+});
