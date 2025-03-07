@@ -30,7 +30,7 @@ class Period extends Model
             'periods.id as id',
             DB::raw('CONCAT(year, "-", view_month_constants.label) as name'),
         )->join('view_month_constants', 'periods.month', '=', 'view_month_constants.value')
-            ->where('is_enabled', true)
+            ->where('status', 'EN CURSO')
             ->first();
 
         return $period ? $period : null;
@@ -42,7 +42,7 @@ class Period extends Model
             'periods.id as id',
             DB::raw('CONCAT(year, "-", view_month_constants.label) as name'),
         )->join('view_month_constants', 'periods.month', '=', 'view_month_constants.value')
-            ->where('enrollment_enabled', true)
+            ->where('status', 'MATRICULA')
             ->first();
 
         return $period ? $period : null;

@@ -30,12 +30,11 @@ class ModuleController extends Controller
 
             $user = Auth::user();
 
-            $student = Student::select('students.id')->join('people', 'students.person_id', '=', 'people.id')
-                ->where('people.document_number', $user->username)
+            $student = Student::select('students.id')
+                ->where('students.id', $user->model_id)
                 ->first();
 
-            $enrollment = Enrollment::where('curriculum_id', $request->curriculumId)
-                ->where('module_id', $request->id)
+            $enrollment = Enrollment::where('module_id', $request->id)
                 ->where('student_id', $student->id)
                 ->first();
 

@@ -9,6 +9,7 @@ use App\Modules\Course\Http\Requests\CourseStoreRequest;
 use App\Modules\Course\Http\Requests\CourseUpdateRequest;
 use App\Modules\Course\Models\Course;
 use App\Modules\Course\Http\Resources\CourseDataTableItemsResource;
+use App\Modules\Student\Models\Student;
 use Illuminate\Support\Facades\Auth;
 // use App\Modules\CurriculumModule\Models\CurriculumModule;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,9 @@ class CourseController extends Controller
         try {
             $user = Auth::user();
 
-            $courses = Course::geCurriculumCourses($request->curriculumId, $request->moduleId, $user);
+            $student = Student::getStudentByUser($user->model_id);
+
+            $courses = Course::geCurriculumCourses($request->curriculumId, $request->moduleId, $student->id);
             return ApiResponse::success($courses);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage());

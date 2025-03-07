@@ -28,6 +28,16 @@ class Student extends Model
         return $this->hasMany('App\Modules\Enrollment\Models\Enrollment');
     }
 
+    public  static function getStudentByUser($userModelId)
+    {
+
+        $student = self::select('students.id', 'students.student_type_id', 'students.is_enabled')
+            ->where('students.id', $userModelId)
+            ->first();
+
+        return $student;
+    }
+
 
     public static function registerItem($data)
     {
