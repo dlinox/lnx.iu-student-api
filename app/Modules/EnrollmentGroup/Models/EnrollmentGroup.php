@@ -13,6 +13,15 @@ class EnrollmentGroup extends Model
         'student_id',
         'group_id',
         'period_id',
-        'payment_id',
+        'created_by',
+        'status',
+    ];
+
+    static $searchColumns = [
+        'modules.name',
+        'courses.name',
+        'groups.name',
+        'areas.name',
+        'periods.year',
     ];
 }

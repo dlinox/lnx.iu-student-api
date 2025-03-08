@@ -10,7 +10,20 @@ class EnrollmentDataTableItemResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'isActive' => $this->is_active,
+            'groupId' => $this->groupId,
+            'group' => $this->group,
+            'enrollmentStatus' => $this->enrollmentStatus,
+            'module' => $this->module,
+            'modality' => $this->modality,
+            'laboratory' => $this->laboratory,
+            'teacher' => $this->teacher,
+            'period' => ucfirst($this->period),
+            'course' => $this->course,
+            'code' => $this->code,
+            'credits' => $this->credits,
+            'hoursPractice' => $this->hoursPractice,
+            'hoursTheory' => $this->hoursTheory,
+            'area' => $this->area,
         ];
     }
 }

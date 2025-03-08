@@ -3,7 +3,7 @@
 use App\Modules\Module\Http\Controllers\ModuleController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('api/modules')->group(function () {
-    Route::get('curriculum/{id}', [ModuleController::class, 'getByCurriculum']);
+Route::prefix('api/modules')->middleware('auth:sanctum')->group(function () {
+    Route::post('curriculum', [ModuleController::class, 'getByCurriculum']);
     Route::get('{id}/curriculum/{curriculumId}', [ModuleController::class, 'getModuleByCurriculum']);
 });

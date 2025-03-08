@@ -23,7 +23,7 @@ class CourseController extends Controller
 
             $student = Student::getStudentByUser($user->model_id);
 
-            $courses = Course::geCurriculumCourses($request->curriculumId, $request->moduleId, $student->id);
+            $courses = Course::geCurriculumCourses($request->moduleId, $student->id);
             return ApiResponse::success($courses);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage());
@@ -34,7 +34,6 @@ class CourseController extends Controller
     public function getExtracurricularCourses(Request $request)
     {
         try {
-
             $user = Auth::user();
             $courses = Course::getExtracurricularCourses($request->curriculumId, $user);
             return ApiResponse::success($courses);
