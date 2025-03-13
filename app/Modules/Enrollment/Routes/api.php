@@ -12,6 +12,8 @@ Route::prefix('api/enrollment')->middleware('auth:sanctum')->group(function () {
     Route::post('update-group-enrollment', [EnrollmentController::class, 'updateGroupEnrollment']);
     //reserverGroupEnrollment
     Route::post('reserver-group-enrollment', [EnrollmentController::class, 'reserverGroupEnrollment']);
+    //cancelGroupEnrollment
+    Route::post('cancel-group-enrollment', [EnrollmentController::class, 'cancelGroupEnrollment']);
     //enabledGroupsEnrollment
     Route::post('enabled-groups-enrollment', [EnrollmentController::class, 'enabledGroupsEnrollment']);
 });

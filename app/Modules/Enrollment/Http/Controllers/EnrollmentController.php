@@ -79,7 +79,6 @@ class EnrollmentController extends Controller
 
             if (!$period) return  ApiResponse::error(null, 'No se encontró el periodo de matrícula');
 
-            //validar pago
             $paymentData = [
                 'studentId' => $student->id,
                 'amount' =>  $request->paymentAmount,
@@ -88,10 +87,8 @@ class EnrollmentController extends Controller
                 'paymentTypeId' => $request->paymentMethod,
             ];
 
-            
             $payment = $this->validatePayment($paymentData);
             $payment = Crypt::decrypt($payment);
-        
 
             $modulePrice = DB::table('module_prices')
                 ->where('module_id', $request->moduleId)
@@ -266,15 +263,49 @@ class EnrollmentController extends Controller
 
             if (!$payment) return ApiResponse::error(null, 'No se encontró el pago asociado a la inscripción');
 
+            DB::commit();
+            return ApiResponse::success(null, 'Reserva exitosa');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ApiResponse::error($e->getMessage(), 'Error al realizar la reserva');
+        }
+    }
+
+    public function cancelGroupEnrollment(Request $request)
+    {
+
+        try {
+            DB::beginTransaction();
+            $user = Auth::user();
+            $student = Student::getStudentByUser($user->model_id);
+            if (!$student) return ApiResponse::error(null, 'No se encontró un estudiante asociado a su usuario');
+            $period = Period::enrollmentPeriod();
+            if (!$period) return ApiResponse::error(null, 'No hay periodo de matrícula activo, por lo tanto no se puede cancelar la matrícula');
+
+            $enrollmentGroup = EnrollmentGroup::find($request->id);
+
+            if ($enrollmentGroup->period_id != $period->id) {
+                return ApiResponse::error(null, 'No se puede cancelar la matrícula en un periodo diferente en el que se matriculó');
+            }
+
+            $enrollmentGroup->status = 'CANCELADO';
+            $enrollmentGroup->save();
+
+            $payment = Payment::where('enrollment_id', $enrollmentGroup->id)
+                ->where('enrollment_type', 'G')
+                ->first();
+
+            if (!$payment) return ApiResponse::error(null, 'No se encontró el pago asociado a la inscripción');
+
             $payment->is_used = false;
             $payment->enrollment_id = null;
             $payment->enrollment_type = null;
             $payment->save();
             DB::commit();
-            return ApiResponse::success(null, 'Reserva exitosa');
+            return ApiResponse::success(null, 'Cancelación exitosa');
         } catch (\Exception $e) {
             DB::rollBack();
-            return ApiResponse::error($e->getMessage(), 'Error al guardar la inscripción');
+            return ApiResponse::error($e->getMessage(), 'Error al realizar la cancelación');
         }
     }
 
@@ -307,8 +338,9 @@ class EnrollmentController extends Controller
                 'laboratories.name as laboratory',
                 DB::raw('CONCAT(people.name, " ", people.last_name_father, " ", people.last_name_mother) as teacher'),
                 'groups.status as status',
+                'groups.max_students as maxStudents',
+                'min_students as minStudents',
             )
-
                 ->join('periods', 'groups.period_id', '=', 'periods.id')
                 ->join('courses', 'groups.course_id', '=', 'courses.id')
                 ->join('course_prices', 'course_prices.course_id', '=', 'courses.id')
@@ -324,13 +356,10 @@ class EnrollmentController extends Controller
                 ->whereIn('groups.status', ['ABIERTO', 'CERRADO'])
                 ->get()
                 ->map(function ($group) {
-                    $group['schedules'] = Schedule::select(
-                        'schedules.day as day',
-                        'schedules.start_hour as startHour',
-                        'schedules.end_hour as endHour',
-                    )
-                        ->where('schedules.group_id', $group->id)
-                        ->get();
+                    $group['enrolledStudents'] = EnrollmentGroup::where('group_id', $group->id)
+                        ->where('status', 'MATRICULADO')
+                        ->count();
+                    $group['schedules'] = Schedule::byGroup($group->id);
                     return $group;
                 });
 
