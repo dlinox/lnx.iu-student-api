@@ -38,7 +38,8 @@ class Module extends Model
             'modules.id as id',
             'modules.name as name',
             'modules.description as description',
-            'modules.is_enabled as is_enabled',
+            'modules.is_enabled as isEnabled',
+            'modules.is_extracurricular as isExtracurricular',
             DB::raw('count(Distinct courses.id) as coursesCount'),
             DB::raw('sum(courses.credits) as credits'),
             DB::raw('sum(courses.hours_practice) as hoursPractice'),
@@ -87,5 +88,28 @@ class Module extends Model
             ->groupby('modules.id')
             ->first();
         return $module;
+    }
+
+    public static function getEnabledOnPeriod($periodId)
+    {
+        $modules = self::select(
+            'modules.id as id',
+            'modules.name as name',
+            'modules.is_extracurricular as isExtracurricular',
+            'curriculums.name as curriculumName',
+            DB::raw('count(Distinct courses.id) as coursesCount'),
+            DB::raw('sum(courses.credits) as credits'),
+            DB::raw('sum(courses.hours_practice) as hoursPractice'),
+            DB::raw('sum(courses.hours_theory) as hoursTheory'),
+        )
+            ->join('courses', 'modules.id', '=', 'courses.module_id')
+            ->join('groups', 'courses.id', '=', 'groups.course_id')
+            ->join('curriculums', 'modules.curriculum_id', '=', 'curriculums.id')
+            ->where('groups.period_id', $periodId)
+            ->when('groups.status', 'ABIERTO')
+            ->groupby('modules.id')
+            ->orderBy('modules.name')
+            ->get();
+        return $modules;
     }
 }

@@ -24,18 +24,6 @@ class Period extends Model
         'is_enabled' => 'boolean',
     ];
 
-    public static function current()
-    {
-        $period = self::select(
-            'periods.id as id',
-            DB::raw('CONCAT(year, "-", view_month_constants.label) as name'),
-        )->join('view_month_constants', 'periods.month', '=', 'view_month_constants.value')
-            ->where('status', 'EN CURSO')
-            ->first();
-
-        return $period ? $period : null;
-    }
-
     public static function enrollmentPeriod()
     {
         $period = self::select(

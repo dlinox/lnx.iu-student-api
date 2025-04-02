@@ -8,11 +8,11 @@ use App\Http\Responses\ApiResponse;
 use App\Modules\Course\Models\Course;
 use App\Modules\Enrollment\Http\Resources\EnrollmentDataTableItemResource;
 use App\Modules\Enrollment\Models\Enrollment;
+use App\Modules\EnrollmentDeadline\Models\EnrollmentDeadline;
 use App\Modules\EnrollmentGroup\Models\EnrollmentGroup;
 use App\Modules\Group\Models\Group;
-use App\Modules\Student\Models\Student;
+use App\Models\Student;
 use App\Modules\Payment\Models\Payment;
-use App\Modules\Period\Models\Period;
 use App\Modules\Schedule\Models\Schedule;
 use App\Services\PaymentService;
 use Illuminate\Support\Facades\Auth;
@@ -75,9 +75,9 @@ class EnrollmentController extends Controller
 
             if (!$student) return ApiResponse::error(null, 'No se encontró un estudiante asociado a su usuario');
 
-            $period = Period::enrollmentPeriod();
+            $enrollmentPeriod = EnrollmentDeadline::activeEnrollmentPeriod();
+            if (!$enrollmentPeriod)  ApiResponse::error(null, 'No se encontró el periodo de matrícula');
 
-            if (!$period) return  ApiResponse::error(null, 'No se encontró el periodo de matrícula');
 
             $paymentData = [
                 'studentId' => $student->id,
@@ -130,17 +130,14 @@ class EnrollmentController extends Controller
     {
         try {
 
-            DB::beginTransaction();
-
             $user = Auth::user();
 
             $student = Student::getStudentByUser($user->model_id);
             if (!$student) return ApiResponse::error('No se encontró el estudiante', 'No se encontró un estudiante asociado a su usuario');
 
 
-            $period = Period::enrollmentPeriod();
-
-            if (!$period) return ApiResponse::error('No se encontró el periodo de matrícula', 'No se encontró el periodo de matrícula');
+            $enrollmentPeriod = EnrollmentDeadline::activeEnrollmentPeriod();
+            if (!$enrollmentPeriod)  ApiResponse::error(null, 'No se encontró el periodo de matrícula');
 
             $paymentData = [
                 'studentId' => $student->id,
@@ -155,7 +152,35 @@ class EnrollmentController extends Controller
 
             $payment = Payment::find($payment);
 
+            //vericar cruces de horarios
             $group = Group::find($request->groupId);
+            $shedules = Schedule::where('group_id', $group->id)->get();
+            if ($shedules->count() == 0) {
+                return ApiResponse::error(null, 'El grupo no tiene horarios asignados');
+            }
+
+            $enrolledSchedules = Schedule::select('schedules.id', 'schedules.start_hour', 'schedules.end_hour', 'schedules.day')
+                ->join('groups', 'schedules.group_id', '=', 'groups.id')
+                ->join('enrollment_groups', 'groups.id', '=', 'enrollment_groups.group_id')
+                ->where('enrollment_groups.student_id', $student->id)
+                ->where('enrollment_groups.period_id', $enrollmentPeriod['periodId'])
+                ->where('enrollment_groups.status', 'MATRICULADO')
+                ->get();
+
+            //verificamos que no haya cruce de horarios
+            foreach ($shedules as $shedule) {
+                foreach ($enrolledSchedules as $enrolledShedule) {
+                    if ($shedule->day == $enrolledShedule->day) {
+                        $startHour = strtotime($shedule->start_hour);
+                        $endHour = strtotime($shedule->end_hour);
+                        $enrolledStartHour = strtotime($enrolledShedule->start_hour);
+                        $enrolledEndHour = strtotime($enrolledShedule->end_hour);
+                        if (($startHour >= $enrolledStartHour && $startHour <= $enrolledEndHour) || ($endHour >= $enrolledStartHour && $endHour <= $enrolledEndHour)) {
+                            return ApiResponse::error(null, 'El grupo tiene cruce de horarios con otro grupo en el que ya está inscrito');
+                        }
+                    }
+                }
+            }
 
             $groupPrice = DB::table('course_prices')
                 ->join('courses', 'course_prices.course_id', '=', 'courses.id')
@@ -173,18 +198,18 @@ class EnrollmentController extends Controller
             $data = [
                 'student_id' => $student->id,
                 'group_id' => $request->groupId,
-                'period_id' => $period->id,
+                'period_id' => $enrollmentPeriod['periodId'],
                 'created_by' => $user->id,
+                'enrollment_modality' => 'VIRTUAL',
                 'status' => 'MATRICULADO',
             ];
 
+            DB::beginTransaction();
             $enrollmentGroup = EnrollmentGroup::create($data);
-
             $payment->enrollment_id = $enrollmentGroup->id;
             $payment->enrollment_type = 'G';
             $payment->is_used = true;
             $payment->save();
-
             DB::commit();
             return ApiResponse::success(null, 'Inscripción exitosa');
         } catch (\Exception $e) {
@@ -196,15 +221,45 @@ class EnrollmentController extends Controller
     public function updateGroupEnrollment(Request $request)
     {
         try {
-            DB::beginTransaction();
             $user = Auth::user();
             $student = Student::getStudentByUser($user->model_id);
             if (!$student) return ApiResponse::error(null, 'No se encontró un estudiante asociado a su usuario');
-            $period = Period::enrollmentPeriod();
-            if (!$period) return ApiResponse::error(null, 'No se encontró el periodo de matrícula');
+
+            $enrollmentPeriod = EnrollmentDeadline::activeEnrollmentPeriod();
+            if (!$enrollmentPeriod)  ApiResponse::error(null, 'No se encontró el periodo de matrícula');
 
             $enrollmentGroup = EnrollmentGroup::find($request->id);
+
             $newGroup = Group::find($request->groupId);
+            $shedules = Schedule::where('group_id', $newGroup->id)->get();
+            if ($shedules->count() == 0) {
+                return ApiResponse::error(null, 'El grupo no tiene horarios asignados');
+            }
+
+            $enrolledSchedules = Schedule::select('schedules.id', 'schedules.start_hour', 'schedules.end_hour', 'schedules.day')
+                ->join('groups', 'schedules.group_id', '=', 'groups.id')
+                ->join('enrollment_groups', 'groups.id', '=', 'enrollment_groups.group_id')
+                ->where('enrollment_groups.student_id', $student->id)
+                ->where('enrollment_groups.period_id', $enrollmentPeriod['periodId'])
+                ->where('groups.id', '!=', $enrollmentGroup->group_id)
+                ->where('enrollment_groups.status', 'MATRICULADO')
+                ->get();
+
+            //verificamos que no haya cruce de horarios
+            foreach ($shedules as $shedule) {
+                foreach ($enrolledSchedules as $enrolledShedule) {
+                    if ($shedule->day == $enrolledShedule->day) {
+                        $startHour = strtotime($shedule->start_hour);
+                        $endHour = strtotime($shedule->end_hour);
+                        $enrolledStartHour = strtotime($enrolledShedule->start_hour);
+                        $enrolledEndHour = strtotime($enrolledShedule->end_hour);
+                        if (($startHour >= $enrolledStartHour && $startHour <= $enrolledEndHour) || ($endHour >= $enrolledStartHour && $endHour <= $enrolledEndHour)) {
+                            return ApiResponse::error(null, 'El grupo tiene cruce de horarios con otro grupo en el que ya está inscrito');
+                        }
+                    }
+                }
+            }
+
             $newGroupPrice = DB::table('course_prices')
                 ->join('courses', 'course_prices.course_id', '=', 'courses.id')
                 ->join('groups', 'courses.id', '=', 'groups.course_id')
@@ -226,6 +281,7 @@ class EnrollmentController extends Controller
                 return ApiResponse::error(null, 'El monto del nuevo grupo es mayor al monto del grupo actual');
             }
 
+            DB::beginTransaction();
             $enrollmentGroup = EnrollmentGroup::find($request->id);
             $enrollmentGroup->group_id = $request->groupId;
             $enrollmentGroup->save();
@@ -245,12 +301,13 @@ class EnrollmentController extends Controller
             $user = Auth::user();
             $student = Student::getStudentByUser($user->model_id);
             if (!$student) return ApiResponse::error(null, 'No se encontró un estudiante asociado a su usuario');
-            $period = Period::enrollmentPeriod();
-            if (!$period) return ApiResponse::error(null, 'Las reservas no están habilitadas en este periodo');
+
+            $enrollmentPeriod = EnrollmentDeadline::activeEnrollmentPeriod();
+            if (!$enrollmentPeriod)  ApiResponse::error(null, 'No se encontró el periodo de matrícula');
 
             $enrollmentGroup = EnrollmentGroup::find($request->id);
 
-            if ($enrollmentGroup->period_id != $period->id) {
+            if ($enrollmentGroup->period_id != $enrollmentPeriod['periodId']) {
                 return ApiResponse::error(null, 'No se puede reservar la matrícula en un periodo diferente en el que se matriculó');
             }
 
@@ -279,12 +336,14 @@ class EnrollmentController extends Controller
             $user = Auth::user();
             $student = Student::getStudentByUser($user->model_id);
             if (!$student) return ApiResponse::error(null, 'No se encontró un estudiante asociado a su usuario');
-            $period = Period::enrollmentPeriod();
-            if (!$period) return ApiResponse::error(null, 'No hay periodo de matrícula activo, por lo tanto no se puede cancelar la matrícula');
+
+
+            $enrollmentPeriod = EnrollmentDeadline::activeEnrollmentPeriod();
+            if (!$enrollmentPeriod)  ApiResponse::error(null, 'No se encontró el periodo de matrícula');
 
             $enrollmentGroup = EnrollmentGroup::find($request->id);
 
-            if ($enrollmentGroup->period_id != $period->id) {
+            if ($enrollmentGroup->period_id != $enrollmentPeriod['periodId']) {
                 return ApiResponse::error(null, 'No se puede cancelar la matrícula en un periodo diferente en el que se matriculó');
             }
 
@@ -326,9 +385,8 @@ class EnrollmentController extends Controller
 
             $student = Student::getStudentByUser($user->model_id);
 
-            $period = Period::enrollmentPeriod();
-
-            if (!$period)  ApiResponse::error(null, 'No se encontró el periodo de matrícula');
+            $enrollmentPeriod = EnrollmentDeadline::activeEnrollmentPeriod();
+            if (!$enrollmentPeriod)  ApiResponse::error(null, 'No se encontró el periodo de matrícula');
 
             $enrollmentGroups = Group::select(
                 'groups.id',
@@ -352,8 +410,8 @@ class EnrollmentController extends Controller
                 })
                 ->where('course_prices.student_type_id', $student->student_type_id)
                 ->where('courses.id', $request->courseId)
-                ->where('periods.id', $period->id)
-                ->whereIn('groups.status', ['ABIERTO', 'CERRADO'])
+                ->where('periods.id', $enrollmentPeriod['periodId'])
+                ->whereIn('groups.status', ['ABIERTO'])
                 ->get()
                 ->map(function ($group) {
                     $group['enrolledStudents'] = EnrollmentGroup::where('group_id', $group->id)
@@ -369,10 +427,8 @@ class EnrollmentController extends Controller
         }
     }
 
-
     private function validatePayment($data)
     {
-
         $paymentService = new PaymentService();
         $validate = $paymentService::validatePaymentBank($data);
 

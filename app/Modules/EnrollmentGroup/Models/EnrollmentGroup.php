@@ -14,6 +14,7 @@ class EnrollmentGroup extends Model
         'group_id',
         'period_id',
         'created_by',
+        'enrollment_modality',
         'status',
     ];
 

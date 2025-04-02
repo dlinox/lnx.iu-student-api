@@ -7,7 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Modules\Enrollment\Models\Enrollment;
 use App\Modules\Module\Models\Module;
-use App\Modules\Student\Models\Student;
+use App\Models\Student;
+use App\Modules\EnrollmentDeadline\Models\EnrollmentDeadline;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -49,6 +50,18 @@ class ModuleController extends Controller
             $module->isEnrolled = $enrollment ? true : false;
 
             return ApiResponse::success($module);
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage());
+        }
+    }
+    //getEnabledByPeriod
+    public function getModulesEnabledOnPeriod()
+    {
+        try {
+            $period = EnrollmentDeadline::activeEnrollmentPeriod();
+            if (!$period) return ApiResponse::success([]);
+            $modules = Module::getEnabledOnPeriod($period['periodId']);
+            return ApiResponse::success($modules);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage());
         }
