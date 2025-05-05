@@ -40,15 +40,20 @@ class Module extends Model
             'modules.description as description',
             'modules.is_enabled as isEnabled',
             'modules.is_extracurricular as isExtracurricular',
-            DB::raw('count(Distinct courses.id) as coursesCount'),
+            DB::raw('count(DISTINCT courses.id) as coursesCount'),
             DB::raw('sum(courses.credits) as credits'),
             DB::raw('sum(courses.hours_practice) as hoursPractice'),
             DB::raw('sum(courses.hours_theory) as hoursTheory'),
             DB::raw('min(course_prices.presential_price) as minPresentialPrice'),
             DB::raw('min(course_prices.virtual_price) as minVirtualPrice'),
+            DB::raw('CASE WHEN COUNT(DISTINCT enrollments.id) > 0 THEN true ELSE false END as hasEnrolled'),
         )
             ->distinct()
             ->join('courses', 'modules.id', '=', 'courses.module_id')
+            ->leftJoin('enrollments', function ($join) use ($studentId) {
+                $join->on('modules.id', '=', 'enrollments.module_id')
+                    ->where('enrollments.student_id', $studentId);
+            })
             ->leftJoin('course_prices', 'courses.id', '=', 'course_prices.course_id')
             ->whereIn('courses.curriculum_id', $curriculums)
             ->when($onlyEnrolled === true, function ($query) use ($studentId) {
@@ -57,7 +62,10 @@ class Module extends Model
             ->where('courses.is_enabled', true)
             ->groupby('modules.id')
             ->orderBy('modules.name')
-            ->get();
+            ->get()->map(function ($module) {
+                $module->hasEnrolled = $module->hasEnrolled  == 1 ? true : false;
+                return $module;
+            });
         return $modules;
     }
 

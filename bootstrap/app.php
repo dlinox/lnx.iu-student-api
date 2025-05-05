@@ -14,7 +14,6 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
 
-        //ThrottleRequestsMiddleware
         $middleware->alias([
             'throttle' => ThrottleRequestsMiddleware::class
         ]);

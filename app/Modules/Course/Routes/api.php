@@ -9,4 +9,7 @@ Route::prefix('api/courses')->middleware('auth:sanctum')->group(function () {
     Route::get('extracurricular/{curriculumId}', [CourseController::class, 'getExtracurricularCourses']);
     //getCoursesEnabled
     Route::get('enabled/{limit}', [CourseController::class, 'getCoursesEnabled']);
+
+    //getByModuleForSelect
+    Route::get('module/{moduleId}/select', [CourseController::class, 'getByModuleForSelect']);
 });

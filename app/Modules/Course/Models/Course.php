@@ -61,8 +61,8 @@ class Course extends Model
                     'groups.name as group',
                     'groups.modality as modality',
                     'laboratories.name as laboratory',
-                    DB::raw('CONCAT_WS(" ", people.name, people.last_name_father, people.last_name_mother) as teacher'),
-                    DB::raw('CONCAT_WS(" ", view_month_constants.label, periods.year) as period'),
+                    DB::raw('CONCAT_WS(" ", teachers.name, teachers.last_name_father, teachers.last_name_mother) as teacher'),
+                    DB::raw('CONCAT_WS(" ", UPPER(months.name), periods.year) as period'),
                     'periods.id as periodId',
                     'enrollment_groups.status as enrollmentStatus',
                     'enrollment_grades.grade',
@@ -71,10 +71,9 @@ class Course extends Model
                     ->join('groups', 'enrollment_groups.group_id', 'groups.id')
                     ->leftJoin('laboratories', 'groups.laboratory_id', 'laboratories.id')
                     ->leftJoin('teachers', 'groups.teacher_id', 'teachers.id')
-                    ->leftJoin('people', 'teachers.person_id', 'people.id')
                     ->leftJoin('enrollment_grades', 'enrollment_groups.id', 'enrollment_grades.enrollment_group_id')
                     ->join('periods', 'groups.period_id', 'periods.id')
-                    ->join('view_month_constants', 'periods.month', 'view_month_constants.value')
+                    ->join('months', 'periods.month', 'months.id')
                     ->whereIn('enrollment_groups.id', explode(',', $course->enrollmentGroups))
                     ->where('enrollment_groups.student_id', $studentId)
                     ->orderBy('groups.id', 'asc')
@@ -181,5 +180,21 @@ class Course extends Model
             ->get();
 
         return $courses;
+    }
+
+    public static function getByModuleForSelect($moduleId)
+    {
+        $courses = self::select(
+            'courses.order',
+            'courses.id as value',
+            'courses.name as title',
+        )
+            ->distinct()
+            ->where('courses.module_id', $moduleId)
+            ->where('courses.is_enabled', true)
+            ->orderBy('courses.order')
+            ->get();
+
+        return $courses ? $courses : [];
     }
 }

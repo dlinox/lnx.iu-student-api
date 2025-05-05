@@ -59,16 +59,16 @@ class User extends Authenticatable
         return self::where('email', $email)->update(['password' => Hash::make($password)]);
     }
 
-    public static function registerItem($person, $studentId, $password)
+    public static function registerItem($student, $password)
     {
         $item =  self::create([
-            'name' => $person['name'] . ' ' . $person['last_name_father'] . ' ' . $person['last_name_mother'],
-            'username' => $person['document_number'],
-            'email' => $person['email'],
+            'name' => $student['name'] . ' ' . $student['last_name_father'] . ' ' . $student['last_name_mother'],
+            'username' => $student['document_number'],
+            'email' => $student['email'],
             'password' => $password,
             'model_type' => 'student',
             'email_verified_at' => now(),
-            'model_id' => $studentId,
+            'model_id' => $student['id'],
         ]);
 
         return $item;

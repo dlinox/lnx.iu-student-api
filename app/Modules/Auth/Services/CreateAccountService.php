@@ -22,9 +22,9 @@ class CreateAccountService
             if ($user) return ApiResponse::error('', 'Ya existe una cuenta con este correo');
 
             $student = Student::select('students.id')
-                ->join('people', 'students.person_id', '=', 'people.id')
-                ->where('people.email', $request->email)
+                ->where('students.email', $request->email)
                 ->first();
+
             if (!$student) return ApiResponse::error('', 'No se encontró un estudiante con este correo');
 
             $studenId = encrypt($student->id);
@@ -54,26 +54,33 @@ class CreateAccountService
     {
         try {
             $studentId = decrypt($request->payload);
-            $person = Person::getByStudentId($studentId);
-            if (!$person) return ApiResponse::error('', 'No se encontró el estudiante, vuelva a intentar desde el inicio');
 
-            $existDocumentNumber = Person::where('document_number', $request->documentNumber)->where('id', '!=', $person->id)->exists();
+            $student = Student::find($studentId);
+
+            if (!$student) return ApiResponse::error('', 'No se encontró el estudiante, vuelva a intentar desde el inicio');
+
+            $existDocumentNumber = Student::where('document_number', $request->documentNumber)->where('id', '!=', $student->id)->exists();
+
             if ($existDocumentNumber) return ApiResponse::error('', 'El número de documento ya se encuentra registrado');
 
-            $existEmail = Person::where('email', $person->email)->where('id', '!=', $person->id)->exists();
+            $existEmail = Student::where('email', $student->email)->where('id', '!=', $student->id)->exists();
             if ($existEmail) return ApiResponse::error('', 'El correo ya se encuentra registrado');
 
-            $existPhone = Person::where('phone', $request->phone)->where('id', '!=', $person->id)->exists();
+            $existPhone = Student::where('phone', $request->phone)->where('id', '!=', $student->id)->exists();
             if ($existPhone) return ApiResponse::error('', 'El teléfono ya se encuentra registrado');
+
             $authSupport = new AuthSupport();
             DB::beginTransaction();
-            $person->updateItem($request);
-            $username = $person->document_number;
+            $student->updatePersonalDataItem($request);
+
+            $username = $student->document_number;
             $password = $authSupport->generatePassword();
-            $user = User::registerItem($person, $studentId, $password);
+
+            $user = User::registerItem($student, $password);
             $user->syncRoles(['estudiante']);
             $userState = $authSupport->userState($user);
-            Mail::to($person->email)->send(new SendCredentialsMail(['username' => $username, 'password' => $password]));
+
+            Mail::to($student->email)->send(new SendCredentialsMail(['username' => $username, 'password' => $password]));
             DB::commit();
             return ApiResponse::success($userState, 'Registro creado correctamente', 201);
         } catch (\Exception $e) {

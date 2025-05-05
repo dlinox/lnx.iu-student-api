@@ -10,8 +10,7 @@ return [
     App\Modules\Course\Providers\CourseServiceProvider::class,
     App\Modules\Enrollment\Providers\EnrollmentServiceProvider::class,
 
-    App\Modules\EnrollmentDeadline\Providers\EnrollmentDeadlineServiceProvider::class,
+    App\Modules\Schedule\Providers\ScheduleServiceProvider::class,
 
-    // DocumentTypeServiceProvider
-    App\Modules\DocumentType\Providers\DocumentTypeServiceProvider::class,
+    App\Modules\EnrollmentDeadline\Providers\EnrollmentDeadlineServiceProvider::class,
 ];

@@ -49,4 +49,15 @@ class CourseController extends Controller
             return ApiResponse::error($e->getMessage());
         }
     }
+
+    //getByModuleForSelect
+    public function getByModuleForSelect(Request $request)
+    {
+        try {
+            $courses = Course::getByModuleForSelect($request->moduleId);
+            return ApiResponse::success($courses);
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage());
+        }
+    }
 }

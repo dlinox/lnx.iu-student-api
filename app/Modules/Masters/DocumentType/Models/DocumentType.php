@@ -17,6 +17,7 @@ class DocumentType extends Model
     protected $casts = [
         'is_enabled' => 'boolean',
     ];
+    
     public $timestamps = false;
 
     public static function getItemsForSelect()

@@ -28,8 +28,8 @@ class Period extends Model
     {
         $period = self::select(
             'periods.id as id',
-            DB::raw('CONCAT(year, "-", view_month_constants.label) as name'),
-        )->join('view_month_constants', 'periods.month', '=', 'view_month_constants.value')
+            DB::raw('CONCAT(year, "-", UPPER(months.name)) as name'),
+        )->join('months', 'periods.month', '=', 'months.id')
             ->where('status', 'MATRICULA')
             ->first();
 

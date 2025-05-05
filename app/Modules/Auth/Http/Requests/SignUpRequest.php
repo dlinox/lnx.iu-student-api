@@ -18,12 +18,12 @@ class SignUpRequest extends FormRequest
     {
         return [
             'document_type_id' => 'required|exists:document_types,id',
-            'document_number' => 'required|max:15|unique:people',
+            'document_number' => 'required|max:15|unique:students',
             'name' => 'required|max:50',
             'last_name_father' => 'nullable|max:50',
             'last_name_mother' => 'nullable|max:50',
             'gender' => 'nullable|in:1,2,0',
-            'email' => 'required|email|max:80',
+            'email' => 'required|email|max:80|unique:students',
             'phone' => 'required|max:15',
             'student_type_id' => 'required|exists:student_types,id',
             'date_of_birth' => 'nullable',

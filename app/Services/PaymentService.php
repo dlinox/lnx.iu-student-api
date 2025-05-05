@@ -8,6 +8,7 @@ class PaymentService
 
     public static function validatePaymentBank($request)
     {
+        //sumar la comision
         return true;
     }
 }

@@ -38,10 +38,10 @@ class EnrollmentDeadline extends Model
             'enrollment_deadlines.start_date as startDate',
             'enrollment_deadlines.end_date as endDate',
             'enrollment_deadlines.virtual',
-            DB::raw('CONCAT(periods.year, "-", view_month_constants.label) as period')
+            DB::raw('CONCAT(periods.year, "-", UPPER(months.name)) as period')
         )
             ->join('periods', 'enrollment_deadlines.period_id', '=', 'periods.id')
-            ->join('view_month_constants', 'periods.month', '=', 'view_month_constants.value')
+            ->join('months', 'periods.month', '=', 'months.id')
             ->where('enrollment_deadlines.start_date', '<=', now())
             ->where('enrollment_deadlines.end_date', '>=', now())
             ->where('enrollment_deadlines.virtual', true)

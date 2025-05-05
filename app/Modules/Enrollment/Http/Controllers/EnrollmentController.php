@@ -35,8 +35,8 @@ class EnrollmentController extends Controller
                 'groups.name as group',
                 'groups.modality as modality',
                 'laboratories.name as laboratory',
-                DB::raw('CONCAT_WS(" ", people.name, people.last_name_father, people.last_name_mother) as teacher'),
-                DB::raw('CONCAT_WS("-", periods.year, view_month_constants.label) as period'),
+                DB::raw('CONCAT_WS(" ", teachers.name, teachers.last_name_father, teachers.last_name_mother) as teacher'),
+                DB::raw('CONCAT_WS("-", periods.year, UPPER(months.name)) as period'),
                 DB::raw('CONCAT_WS("- ", courses.code, courses.name) as course'),
                 'courses.code as code',
                 'courses.credits as credits',
@@ -49,10 +49,9 @@ class EnrollmentController extends Controller
                 ->join('modules', 'courses.module_id', '=', 'modules.id')
                 ->join('areas', 'courses.area_id', '=', 'areas.id')
                 ->join('periods', 'enrollment_groups.period_id', '=', 'periods.id')
-                ->join('view_month_constants', 'periods.month', '=', 'view_month_constants.value')
+                ->join('months', 'periods.month', '=', 'months.id')
                 ->leftJoin('laboratories', 'groups.laboratory_id', '=', 'laboratories.id')
                 ->leftJoin('teachers', 'groups.teacher_id', '=', 'teachers.id')
-                ->leftJoin('people', 'teachers.person_id', '=', 'people.id')
                 ->where('student_id', $student->id)
                 ->orderBy('periods.year', 'desc')
                 ->orderBy('periods.month', 'desc')
@@ -68,7 +67,6 @@ class EnrollmentController extends Controller
     {
         try {
 
-            DB::beginTransaction();
             $user = Auth::user();
 
             $student = Student::getStudentByUser($user->model_id);
@@ -78,6 +76,53 @@ class EnrollmentController extends Controller
             $enrollmentPeriod = EnrollmentDeadline::activeEnrollmentPeriod();
             if (!$enrollmentPeriod)  ApiResponse::error(null, 'No se encontró el periodo de matrícula');
 
+            $modulePrice = DB::table('module_prices')
+                ->where('module_id', $request->moduleId)
+                ->where('student_type_id', $student->student_type_id)
+                ->first();
+
+            $group = Group::where('group_id', $request->groupId)
+                ->first();
+
+            if (!$group) return ApiResponse::error(null, 'No se encontró el grupo seleccionado');
+
+            $shedules = Schedule::where('group_id', $group->id)->get();
+            if ($shedules->count() == 0) {
+                return ApiResponse::error(null, 'El grupo no tiene horarios asignados');
+            }
+
+            $enrolledSchedules = Schedule::select('schedules.id', 'schedules.start_hour', 'schedules.end_hour', 'schedules.day')
+                ->join('groups', 'schedules.group_id', '=', 'groups.id')
+                ->join('enrollment_groups', 'groups.id', '=', 'enrollment_groups.group_id')
+                ->where('enrollment_groups.student_id', $student->id)
+                ->where('enrollment_groups.period_id', $enrollmentPeriod['periodId'])
+                ->where('enrollment_groups.status', 'MATRICULADO')
+                ->get();
+
+            //verificamos que no haya cruce de horarios
+            foreach ($shedules as $shedule) {
+                foreach ($enrolledSchedules as $enrolledShedule) {
+                    if ($shedule->day == $enrolledShedule->day) {
+                        $startHour = strtotime($shedule->start_hour);
+                        $endHour = strtotime($shedule->end_hour);
+                        $enrolledStartHour = strtotime($enrolledShedule->start_hour);
+                        $enrolledEndHour = strtotime($enrolledShedule->end_hour);
+                        if (($startHour >= $enrolledStartHour && $startHour <= $enrolledEndHour) || ($endHour >= $enrolledStartHour && $endHour <= $enrolledEndHour)) {
+                            return ApiResponse::error(null, 'El grupo tiene cruce de horarios con otro grupo en el que ya está inscrito');
+                        }
+                    }
+                }
+            }
+
+            $coursePrice = DB::table('course_prices')
+                ->join('courses', 'course_prices.course_id', '=', 'courses.id')
+                ->where('courses.id', $group->course_id)
+                ->where('course_prices.student_type_id', $student->student_type_id)
+                ->first();
+
+            if (!$coursePrice) return ApiResponse::error(null, 'No se encontró el precio del curso');
+
+            $totalPrice = $modulePrice->price + $coursePrice->modality == 'PRESENCIAL' ? $coursePrice->presential_price : $coursePrice->virtual_price;
 
             $paymentData = [
                 'studentId' => $student->id,
@@ -87,22 +132,18 @@ class EnrollmentController extends Controller
                 'paymentTypeId' => $request->paymentMethod,
             ];
 
-            $payment = $this->validatePayment($paymentData);
-            $payment = Crypt::decrypt($payment);
+            DB::beginTransaction();
 
-            $modulePrice = DB::table('module_prices')
-                ->where('module_id', $request->moduleId)
-                ->where('student_type_id', $student->student_type_id)
-                ->first();
+            $payment = $this->validatePayment($paymentData);
+
+            $payment = Crypt::decrypt($payment);
 
             $totalPayment = Payment::whereIn('id', [$payment])
                 ->where('student_id', $student->id)
                 ->where('is_used', false)
                 ->sum('amount');
 
-            var_dump($student);
-
-            if ($totalPayment < $modulePrice->price) {
+            if ($totalPayment < $totalPrice) {
                 return ApiResponse::error(null, 'El monto del pago no es suficiente para matricularse en el módulo');
             }
 
@@ -111,11 +152,24 @@ class EnrollmentController extends Controller
                 'module_id' => $request->moduleId,
             ];
 
-            $enrollment = Enrollment::create($data);
+
+            $dataGroup = [
+                'student_id' => $student->id,
+                'group_id' => $request->groupId,
+                'period_id' => $enrollmentPeriod['periodId'],
+                'created_by' => $user->id,
+                'enrollment_modality' => 'VIRTUAL',
+                'status' => 'MATRICULADO',
+            ];
+
+            DB::beginTransaction();
+
+            Enrollment::create($data);
+            $enrollmentGroup = EnrollmentGroup::create($dataGroup);
 
             $payment = Payment::find($payment);
-            $payment->enrollment_type = 'M';
-            $payment->enrollment_id = $enrollment->id;
+            $payment->enrollment_type = 'G';
+            $payment->enrollment_id = $enrollmentGroup->id;
             $payment->is_used = true;
             $payment->save();
             DB::commit();
@@ -394,7 +448,7 @@ class EnrollmentController extends Controller
                 'groups.modality as modality',
                 DB::raw('IF(groups.modality = "PRESENCIAL", course_prices.presential_price, course_prices.virtual_price) as price'),
                 'laboratories.name as laboratory',
-                DB::raw('CONCAT(people.name, " ", people.last_name_father, " ", people.last_name_mother) as teacher'),
+                DB::raw('CONCAT(teachers.name, " ", teachers.last_name_father, " ", teachers.last_name_mother) as teacher'),
                 'groups.status as status',
                 'groups.max_students as maxStudents',
                 'min_students as minStudents',
@@ -404,7 +458,6 @@ class EnrollmentController extends Controller
                 ->join('course_prices', 'course_prices.course_id', '=', 'courses.id')
                 ->leftJoin('laboratories', 'groups.laboratory_id', '=', 'laboratories.id')
                 ->leftJoin('teachers', 'groups.teacher_id', '=', 'teachers.id')
-                ->leftJoin('people', 'teachers.person_id', '=', 'people.id')
                 ->when($request->groupId, function ($query) use ($request) {
                     return $query->where('groups.id', '!=',   $request->groupId);
                 })
