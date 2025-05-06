@@ -81,7 +81,7 @@ class EnrollmentController extends Controller
                 ->where('student_type_id', $student->student_type_id)
                 ->first();
 
-            $group = Group::where('group_id', $request->groupId)
+            $group = Group::where('id', $request->groupId)
                 ->first();
 
             if (!$group) return ApiResponse::error(null, 'No se encontró el grupo seleccionado');
@@ -99,7 +99,6 @@ class EnrollmentController extends Controller
                 ->where('enrollment_groups.status', 'MATRICULADO')
                 ->get();
 
-            //verificamos que no haya cruce de horarios
             foreach ($shedules as $shedule) {
                 foreach ($enrolledSchedules as $enrolledShedule) {
                     if ($shedule->day == $enrolledShedule->day) {
@@ -122,7 +121,9 @@ class EnrollmentController extends Controller
 
             if (!$coursePrice) return ApiResponse::error(null, 'No se encontró el precio del curso');
 
-            $totalPrice = $modulePrice->price + $coursePrice->modality == 'PRESENCIAL' ? $coursePrice->presential_price : $coursePrice->virtual_price;
+            $monthlyPrice = $group->modality == 'PRESENCIAL' ? $coursePrice->presential_price : $coursePrice->virtual_price;
+
+            $totalPrice = $modulePrice->price + $monthlyPrice;
 
             $paymentData = [
                 'studentId' => $student->id,
@@ -131,8 +132,6 @@ class EnrollmentController extends Controller
                 'sequenceNumber' => $request->paymentSequence,
                 'paymentTypeId' => $request->paymentMethod,
             ];
-
-            DB::beginTransaction();
 
             $payment = $this->validatePayment($paymentData);
 

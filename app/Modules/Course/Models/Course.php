@@ -61,6 +61,7 @@ class Course extends Model
                     'groups.name as group',
                     'groups.modality as modality',
                     'laboratories.name as laboratory',
+                    'laboratories.virtual_link as virtualLink',
                     DB::raw('CONCAT_WS(" ", teachers.name, teachers.last_name_father, teachers.last_name_mother) as teacher'),
                     DB::raw('CONCAT_WS(" ", UPPER(months.name), periods.year) as period'),
                     'periods.id as periodId',
