@@ -43,6 +43,7 @@ class User extends Authenticatable
             ->where('model_type', 'student')
             ->first();
     }
+    
     public function getUser($username)
     {
         return self::select('users.*',)
