@@ -3,8 +3,7 @@ return [
     'paths' => ['api/*'], // Aplica CORS solo a rutas API
     'allowed_methods' => ['*'], // Permitir todos los métodos
     'allowed_origins' => [
-        'http://34.55.61.47:81',
-        'http://34.55.61.47:83',
+        'https://matriculas.infouna.unap.edu.pe',
         'http://localhost:2023',
     ], // Solo estos orígenes pueden acceder a la API
     'allowed_origins_patterns' => [],
