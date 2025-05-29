@@ -114,8 +114,9 @@ class EnrollmentController extends Controller
                         $endHour = strtotime($shedule->end_hour);
                         $enrolledStartHour = strtotime($enrolledShedule->start_hour);
                         $enrolledEndHour = strtotime($enrolledShedule->end_hour);
-                        if (($startHour >= $enrolledStartHour && $startHour <= $enrolledEndHour) || ($endHour >= $enrolledStartHour && $endHour <= $enrolledEndHour)) {
-                            return ApiResponse::error(null, 'El grupo tiene cruce de horarios con otro grupo en el que ya está inscrito');
+
+                        if ($startHour < $enrolledEndHour && $endHour > $enrolledStartHour) {
+                            return ApiResponse::error(null, 'Este grupo tiene un horario que se cruza con otro curso en el que ya estás inscrito. Por favor, revisa tus horarios.');
                         }
                     }
                 }
