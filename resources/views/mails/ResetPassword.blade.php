@@ -6,7 +6,7 @@
 <head>
     <meta charset="UTF-8">
     <title>
-        Reestablecer Contraseña
+        Restablecer Contraseña
     </title>
     <style>
         body {
@@ -60,7 +60,7 @@
 
 
         <div class="header">
-            Reestablecer Contraseña
+            Restablecer Contraseña
         </div>
         <p>Estimado usuario,</p>
         <p>Se reestableció su contraseña. Su nueva contraseña es:</p>
