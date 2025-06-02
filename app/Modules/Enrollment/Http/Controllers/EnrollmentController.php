@@ -482,6 +482,7 @@ class EnrollmentController extends Controller
             }
 
             $enrollmentGroup->status = 'CANCELADO';
+            $enrollmentGroup->with_enrollment = false;
             $enrollmentGroup->save();
 
             $payment = Payment::where('enrollment_id', $enrollmentGroup->id)
