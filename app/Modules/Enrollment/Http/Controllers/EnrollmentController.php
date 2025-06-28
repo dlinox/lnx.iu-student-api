@@ -22,6 +22,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class EnrollmentController extends Controller
 {
@@ -140,6 +141,7 @@ class EnrollmentController extends Controller
                 'date' => $request->paymentDate,
                 'sequenceNumber' => $request->paymentSequence,
                 'paymentTypeId' => $request->paymentMethod,
+                'paymentFile' => $request->paymentFile ?? null,
             ];
 
             $payment = $this->validatePayment($paymentData);
@@ -150,6 +152,9 @@ class EnrollmentController extends Controller
                 ->where('student_id', $student->id)
                 ->where('is_used', false)
                 ->sum('amount');
+
+            $payment = Payment::find($payment);
+
 
             if ($totalPayment < $totalPrice) {
                 return ApiResponse::error(null, 'El monto del pago no es suficiente para matricularse en el módulo');
@@ -175,8 +180,6 @@ class EnrollmentController extends Controller
 
             Enrollment::create($data);
             $enrollmentGroup = EnrollmentGroup::create($dataGroup);
-
-            $payment = Payment::find($payment);
             $payment->enrollment_id = $enrollmentGroup->id;
             $payment->is_used = true;
             $payment->save();
@@ -206,6 +209,7 @@ class EnrollmentController extends Controller
                 'date' => $request->paymentDate,
                 'sequenceNumber' => $request->paymentSequence,
                 'paymentTypeId' => $request->paymentMethod,
+                'paymentFile' => $request->has('paymentFile') ? $request->paymentFile : null,
             ];
 
             $payment = $this->validatePayment($paymentData);
@@ -670,6 +674,22 @@ class EnrollmentController extends Controller
             if ($payment->is_used == true) throw new \Exception('El pago ya fue utilizado');
         } else {
             $payment = Payment::registerItem($data);
+
+
+            if (isset($data['paymentFile']) && $data['paymentFile']) {
+                if (preg_match('/^data:(image\/\w+);base64,/', $data['paymentFile'], $matches)) {
+                    $mimeType = $matches[1];
+                    $extension = explode('/', $mimeType)[1];
+                    $base64Str = substr($data['paymentFile'], strpos($data['paymentFile'], ',') + 1);
+                    $base64Str = base64_decode($base64Str);
+                    $filename = 'payments/' . $payment->id . '.' . $extension;
+                    Storage::disk('public')->put($filename, $base64Str);
+                    $path = asset(Storage::url($filename));
+
+                    Payment::where('id', $payment->id)
+                        ->update(['path' => $path]);
+                }
+            }
         }
 
         $paymentToken = Crypt::encrypt($payment->id);
