@@ -675,7 +675,6 @@ class EnrollmentController extends Controller
         } else {
             $payment = Payment::registerItem($data);
 
-
             if (isset($data['paymentFile']) && $data['paymentFile']) {
                 if (preg_match('/^data:(image\/\w+);base64,/', $data['paymentFile'], $matches)) {
                     $mimeType = $matches[1];

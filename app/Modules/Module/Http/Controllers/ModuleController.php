@@ -43,10 +43,14 @@ class ModuleController extends Controller
 
             $module = Module::getModuleByCurriculum($request->id, $student->student_type_id);
 
-            $enrollment = Enrollment::where('module_id', $request->id)
-                ->where('student_id', $student->id)
-                ->first();
-
+            $enrollment = DB::table('enrollment_groups')
+                ->join('groups', 'enrollment_groups.group_id', '=', 'groups.id')
+                ->join('courses', 'groups.course_id', '=', 'courses.id')
+                ->join('modules', 'courses.module_id', '=', 'modules.id')
+                ->where('enrollment_groups.student_id', $student->id)
+                ->where('enrollment_groups.status', 'MATRICULADO')
+                ->where('modules.id', $request->id)
+                ->exists();
             $module->isEnrolled = $enrollment ? true : false;
 
             return ApiResponse::success($module);

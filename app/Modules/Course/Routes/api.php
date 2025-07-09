@@ -12,4 +12,7 @@ Route::prefix('api/courses')->middleware('auth:sanctum')->group(function () {
 
     //getByModuleForSelect
     Route::get('module/{moduleId}/select', [CourseController::class, 'getByModuleForSelect']);
+
+    //getEnabledGroups
+    Route::get('enabled-groups', [CourseController::class, 'getEnabledGroups']);
 });

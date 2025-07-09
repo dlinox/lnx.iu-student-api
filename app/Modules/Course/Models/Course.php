@@ -23,7 +23,7 @@ class Course extends Model
         'is_enabled' => 'boolean',
     ];
 
-    public static function geCurriculumCourses($moduleId, $studentId)
+    public static function getCurriculumCourses($moduleId, $studentId)
     {
         $courses = self::select(
             'courses.id as id',
@@ -31,9 +31,6 @@ class Course extends Model
             'courses.description as description',
             'courses.is_enabled as isEnabled',
             'courses.code',
-            'courses.credits',
-            'courses.hours_practice as hoursPractice',
-            'courses.hours_theory as hoursTheory',
             'areas.name as area',
             DB::raw('count(DISTINCT enrollment_groups.id) as hasEnrollment'),
             DB::raw('GROUP_CONCAT(DISTINCT enrollment_groups.id) as enrollmentGroups'),
@@ -50,6 +47,7 @@ class Course extends Model
             ->where('courses.is_enabled', true)
             ->where('courses.module_id', $moduleId)
             ->groupBy('courses.id')
+            ->orderByDesc('hasEnrollment')
             ->get();
 
         $courses->map(function ($course) use ($studentId) {
@@ -59,6 +57,7 @@ class Course extends Model
                 $enrollmentGroup = EnrollmentGroup::select(
                     'groups.id as id',
                     'groups.name as group',
+                    'groups.min_students as minStudents',
                     'groups.modality as modality',
                     'laboratories.name as laboratory',
                     'laboratories.virtual_link as virtualLink',
@@ -98,6 +97,11 @@ class Course extends Model
                     }
                     $group->schedule = $schedule;
 
+                    $group->countStudents = DB::table('enrollment_groups')
+                        ->where('enrollment_groups.group_id', $group->id)
+                        ->where('enrollment_groups.status', 'MATRICULADO')
+                        ->count();
+
                     return $group;
                 });
 
@@ -121,6 +125,40 @@ class Course extends Model
 
 
         return $courses;
+    }
+
+    public static function getEnabledGroups($periodId)
+    {
+        $groups = self::select(
+            'groups.id',
+            'groups.name',
+            'groups.min_students as minStudents',
+            'courses.id as courseId',
+            'courses.name as courseName',
+            'areas.name as areaName',
+            'modules.id as moduleId',
+            'modules.name as moduleName',
+        )
+            ->distinct()
+            ->join('areas', 'courses.area_id', 'areas.id')
+            ->join('groups', 'courses.id', 'groups.course_id')
+            ->join('modules', 'courses.module_id', 'modules.id')
+            ->where('groups.period_id', $periodId)
+            ->whereIn('groups.status', ['ABIERTO'])
+            ->get()->map(function ($group) {
+                $group->countStudents = DB::table('enrollment_groups')
+                    ->where('enrollment_groups.group_id', $group->id)
+                    ->where('enrollment_groups.status', 'MATRICULADO')
+                    ->count();
+
+                return $group;
+            });
+
+            //order by countStudents
+        $groups = $groups->sortByDesc('countStudents')->values()->all();
+
+
+        return $groups;
     }
 
     //obtener cursos extracurriculares

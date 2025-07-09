@@ -52,6 +52,7 @@ class Schedule extends Model
             ->join('days', 'days.short_name', '=', 'schedules.day')
             ->where('enrollment_groups.student_id', $studentId)
             ->whereIn('groups.status', ['ABIERTO', 'CERRADO'])
+            ->where('enrollment_groups.status', 'MATRICULADO')
             ->groupBy('day')
             ->orderBy('day')
             ->get();

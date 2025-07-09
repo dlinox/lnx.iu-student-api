@@ -19,7 +19,7 @@ class CourseController extends Controller
             $user = Auth::user();
 
             $student = Student::getStudentByUser($user->model_id);
-            $courses = Course::geCurriculumCourses($request->moduleId, $student->id);
+            $courses = Course::getCurriculumCourses($request->moduleId, $student->id);
             return ApiResponse::success($courses);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage());
@@ -56,6 +56,18 @@ class CourseController extends Controller
         try {
             $courses = Course::getByModuleForSelect($request->moduleId);
             return ApiResponse::success($courses);
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage());
+        }
+    }
+
+    public function getEnabledGroups()
+    {
+        try {
+            $period = EnrollmentDeadline::activeEnrollmentPeriod();
+            if (!$period) return ApiResponse::success([]);
+            $groups = Course::getEnabledGroups($period['periodId']);
+            return ApiResponse::success($groups);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage());
         }
